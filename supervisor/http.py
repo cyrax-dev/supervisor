@@ -744,17 +744,36 @@ class logtail_handler:
             request.error(404) # not found
             return
 
-        mtime = os.stat(logfile)[stat.ST_MTIME]
-        request['Last-Modified'] = http_date.build_http_date(mtime)
+        # Добавляем поддержку пагинации
+        try:
+            page = int(request.query.get('page', ['1'])[0])
+            lines_per_page = 1000  # настраиваемый размер страницы
+        except (ValueError, IndexError):
+            page = 1
+
+        with open(logfile, 'rb') as f:
+            # Считаем общее количество строк
+            total_lines = sum(1 for _ in f)
+            total_pages = (total_lines + lines_per_page - 1) // lines_per_page
+
+            # Перемещаемся к нужной странице
+            f.seek(0)
+            start_line = (page - 1) * lines_per_page
+            current_line = 0
+
+            lines = []
+            for line in f:
+                if current_line >= start_line:
+                    if len(lines) >= lines_per_page:
+                        break
+                    lines.append(line)
+                current_line += 1
+
+        content = b''.join(lines)
+
         request['Content-Type'] = 'text/plain;charset=utf-8'
-        # the lack of a Content-Length header makes the outputter
-        # send a 'Transfer-Encoding: chunked' response
-        request['X-Accel-Buffering'] = 'no'
-        # tell reverse proxy server (e.g., nginx) to disable proxy buffering
-        # (see also http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering)
-
-        request.push(tail_f_producer(request, logfile, 1024))
-
+        request['X-Total-Pages'] = str(total_pages)
+        request.push(content)
         request.done()
 
 class mainlogtail_handler:

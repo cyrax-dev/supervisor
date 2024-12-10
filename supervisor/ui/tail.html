@@ -1,27 +1,48 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"
-      xmlns:meld="https://github.com/Supervisor/supervisor">
+<!DOCTYPE html>
+<html>
 <head>
-  <title meld:id="title">Supervisor Status</title>
+  <title meld:id="title">Process Log</title>
+  <link href="stylesheets/supervisor.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.0.1/ansi_up.min.js"></script>
+  <script>
+    const ansi_up = new AnsiUp();
+
+    function updateLog(page) {
+      fetch(`tail.html?processname=${processName}&page=${page}`)
+        .then(response => response.text())
+        .then(text => {
+          const coloredText = ansi_up.ansi_to_html(text);
+          document.getElementById('log-content').innerHTML = coloredText;
+        });
+    }
+
+    function setupPagination(total) {
+      const container = document.getElementById('pagination');
+      container.innerHTML = '';
+
+      for (let i = 1; i <= total; i++) {
+        const button = document.createElement('button');
+        button.className = 'pagination-button';
+        button.textContent = i;
+        button.onclick = () => updateLog(i);
+        container.appendChild(button);
+      }
+    }
+  </script>
 </head>
 <body>
+  <div id="wrapper">
+    <div class="log-container">
+      <pre id="log-content" meld:id="tailbody"></pre>
+    </div>
 
-<div meld:id="content">
+    <div id="pagination" class="pagination"></div>
 
-<pre meld:id="tailbody"></pre>
-
-<form meld:id="form" action="index.html" method="POST">
-
-<div style="margin-top: 10px;">
-  <a href="tail.html?processname=thisprocess" meld:id="refresh_anchor">
-    <input type="button" value=" Refresh " name="refresh" />
-  </a>
-</div>
-
-</form>
-
-</div>
-
+    <div class="actions">
+      <button class="action-button" onclick="updateLog(currentPage)">
+        Refresh
+      </button>
+    </div>
+  </div>
 </body>
 </html>
